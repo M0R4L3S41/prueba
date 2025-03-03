@@ -2,13 +2,15 @@ from flask import Flask, render_template, request, send_file, jsonify, Blueprint
 import fitz  # PyMuPDF para manejar PDFs
 import qrcode
 import os
-from io import BytesIO
+from io import BytesIO , StringIO
 from PIL import Image  # Importar la biblioteca Pillow
 from datetime import datetime  # Para manejar fechas y horas
 import pytz  # Para manejar zonas horarias
 import random  # Para generar el número aleatorio
 from barcode import Code128
-from barcode.writer import ImageWriter
+from barcode.writer import SVGWriter, ImageWriter
+import re
+from cairosvg import svg2png
 
 # Inicialización de la aplicación
 app = Flask(__name__)
@@ -76,78 +78,59 @@ def generate_qr_code(text):
     return qr_img_fitz
 
 def generate_barcode(text):
-    """Genera un código de barras SVG en memoria y devuelve un objeto Pixmap de PyMuPDF."""
+    """Genera un código de barras en alta calidad y lo devuelve como un objeto Pixmap de PyMuPDF."""
     try:
-        from barcode.writer import SVGWriter
-        from io import StringIO
-        import re
-        
-        # Crear un objeto StringIO para el contenido SVG
+        # Crear un objeto StringIO para almacenar el SVG
         svg_io = StringIO()
-        
-        # Configurar el escritor SVG para no mostrar texto
+
+        # Configurar el escritor SVG para mejor calidad
         options = {
-            'write_text': False,  # Desactivar el texto debajo del código
-            'module_height': 15,  # Altura de las barras en px
-            'module_width': 0,  # Ancho de cada barra individual (para que el total sea aproximadamente 150px)
-            'quiet_zone': 0       # Reducir el espacio en blanco alrededor del código
+            'write_text': False,  # Ocultar el texto debajo del código de barras
+            'module_height': 60,  # Altura del código de barras (más grande para mejor resolución)
+            'module_width': 0.4,  # Ajustar el ancho de cada barra
+            'quiet_zone': 2       # Añadir margen para evitar cortes
         }
-        
-        # Generar código de barras Code128 sin texto en formato SVG
-        Code128(text, writer=SVGWriter(options)).write(svg_io)
-        
-        # Obtener el contenido SVG
+
+        # Generar código de barras en formato SVG
+        Code128(text, writer=SVGWriter()).write(svg_io, options=options)
         svg_content = svg_io.getvalue()
-        
-        # Convertir SVG a PNG para usar con fitz
-        from cairosvg import svg2png
-        png_data = BytesIO()
-        
-        # Extraer las dimensiones del SVG para redimensionarlo
+
+        # Ajustar el tamaño del SVG antes de convertir a PNG
         width_match = re.search(r'width="(\d+(\.\d+)?)"', svg_content)
         height_match = re.search(r'height="(\d+(\.\d+)?)"', svg_content)
-        
+
         if width_match and height_match:
-            # Asegurar que el SVG tenga las dimensiones correctas
             original_width = float(width_match.group(1))
             original_height = float(height_match.group(1))
-            
-            # Ajustar el SVG para que tenga exactamente 150x15 px
+
+            # Escalar el SVG a un tamaño mayor antes de convertir
             svg_content = svg_content.replace(
-                f'width="{original_width}"', 'width="100"'
+                f'width="{original_width}"', 'width="600"'
             ).replace(
-                f'height="{original_height}"', 'height="15"'
+                f'height="{original_height}"', 'height="180"'
             )
-        
-        # Convertir el SVG a PNG
-        svg2png(bytestring=svg_content.encode('utf-8'), write_to=png_data)
+
+        # Convertir SVG a PNG en alta resolución
+        png_data = BytesIO()
+        svg2png(bytestring=svg_content.encode('utf-8'), write_to=png_data, dpi=300)
         png_data.seek(0)
-        
-        # Crear un Pixmap de PyMuPDF
-        barcode_img = fitz.Pixmap(png_data)
-        
+
+        # Cargar imagen con PIL y redimensionar suavemente
+        img = Image.open(png_data)
+        img = img.resize((150, 40), Image.LANCZOS)  # Redimensionar a tamaño final sin perder nitidez
+
+        # Guardar la imagen optimizada en un nuevo BytesIO
+        img_bytes = BytesIO()
+        img.save(img_bytes, format="PNG")
+        img_bytes.seek(0)
+
+        # Convertir la imagen a Pixmap para fitz
+        barcode_img = fitz.Pixmap(img_bytes)
         return barcode_img
+
     except Exception as e:
-        print(f"Error generando código de barras SVG: {e}")
-        # Si falla, intentar con el método anterior de ImageWriter
-        try:
-            output = BytesIO()
-            writer = ImageWriter()
-            writer.options = {"write_text": False}
-            Code128(text, writer=writer).write(output)
-            output.seek(0)
-            
-            img = Image.open(output)
-            # Redimensionar a 150x15 px
-            img = img.resize((120, 15), Image.LANCZOS)
-            img_bytes = BytesIO()
-            img.save(img_bytes, format="PNG")
-            img_bytes.seek(0)
-            
-            return fitz.Pixmap(img_bytes)
-        except Exception as backup_error:
-            print(f"Error en método de respaldo: {backup_error}")
-            return None
+        print(f"Error generando código de barras: {e}")
+        return None
 def overlay_pdf_on_background(pdf_file, output_stream, apply_front, apply_rear, apply_folio):
     """Superpone PDFs según las opciones seleccionadas."""
     try:
