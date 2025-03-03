@@ -118,19 +118,21 @@ def generate_barcode(text):
         # Cargar imagen con PIL y redimensionar suavemente
         img = Image.open(png_data)
         img = img.resize((150, 40), Image.LANCZOS)  # Redimensionar a tamaño final sin perder nitidez
+        img = img.convert("RGB")  # Asegurarse de que esté en RGB
 
         # Guardar la imagen optimizada en un nuevo BytesIO
         img_bytes = BytesIO()
         img.save(img_bytes, format="PNG")
         img_bytes.seek(0)
 
-        # Convertir la imagen a Pixmap para fitz
-        barcode_img = fitz.Pixmap(img_bytes)
+        # Convertir la imagen a Pixmap para fitz usando los bytes
+        barcode_img = fitz.Pixmap(img_bytes.getvalue())
         return barcode_img
 
     except Exception as e:
         print(f"Error generando código de barras: {e}")
         return None
+
 def overlay_pdf_on_background(pdf_file, output_stream, apply_front, apply_rear, apply_folio):
     """Superpone PDFs según las opciones seleccionadas."""
     try:
