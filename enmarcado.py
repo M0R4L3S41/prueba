@@ -85,12 +85,13 @@ def generate_barcode(text):
         # Crear un objeto StringIO para el contenido SVG
         svg_io = StringIO()
         
-        # Configurar el escritor SVG para no mostrar texto
+        # Configurar el escritor SVG con dimensiones específicas
         options = {
-            'write_text': False,  # Desactivar el texto debajo del código
-            'module_height': 15,  # Altura de las barras en px
-            'module_width': 0,  # Ancho de cada barra individual (para que el total sea aproximadamente 150px)
-            'quiet_zone': 0       # Reducir el espacio en blanco alrededor del código
+            'write_text': False,      # Desactivar el texto debajo del código
+            'module_height': 15,      # Altura de las barras en px
+            'module_width': 0.6,      # Ancho de cada barra individual (ajustado para mejor visualización)
+            'quiet_zone': 3,          # Pequeño margen de seguridad
+            'font_size': 0            # Asegurar que no haya texto
         }
         
         # Generar código de barras Code128 sin texto en formato SVG
@@ -108,19 +109,15 @@ def generate_barcode(text):
         height_match = re.search(r'height="(\d+(\.\d+)?)"', svg_content)
         
         if width_match and height_match:
-            # Asegurar que el SVG tenga las dimensiones correctas
-            original_width = float(width_match.group(1))
-            original_height = float(height_match.group(1))
-            
-            # Ajustar el SVG para que tenga exactamente 150x15 px
+            # Ajustar el SVG para que tenga dimensiones específicas
             svg_content = svg_content.replace(
-                f'width="{original_width}"', 'width="100"'
+                f'width="{width_match.group(1)}"', 'width="130"'
             ).replace(
-                f'height="{original_height}"', 'height="15"'
+                f'height="{height_match.group(1)}"', 'height="15"'
             )
         
-        # Convertir el SVG a PNG
-        svg2png(bytestring=svg_content.encode('utf-8'), write_to=png_data)
+        # Convertir el SVG a PNG con una resolución específica
+        svg2png(bytestring=svg_content.encode('utf-8'), write_to=png_data, scale=1.0)
         png_data.seek(0)
         
         # Crear un Pixmap de PyMuPDF
@@ -129,7 +126,7 @@ def generate_barcode(text):
         return barcode_img
     except Exception as e:
         print(f"Error generando código de barras SVG: {e}")
-        # Si falla, intentar con el método anterior de ImageWriter
+        # Si falla, intentar con el método alternativo de ImageWriter
         try:
             output = BytesIO()
             writer = ImageWriter()
@@ -138,8 +135,10 @@ def generate_barcode(text):
             output.seek(0)
             
             img = Image.open(output)
-            # Redimensionar a 150x15 px
-            img = img.resize((120, 15), Image.LANCZOS)
+            # Redimensionar a dimensiones específicas
+            img = img.resize((130, 15), Image.LANCZOS)
+            # Eliminar márgenes adicionales recortando la imagen
+            img = img.crop((0, 0, 130, 15))
             img_bytes = BytesIO()
             img.save(img_bytes, format="PNG")
             img_bytes.seek(0)
@@ -215,30 +214,23 @@ def overlay_pdf_on_background(pdf_file, output_stream, apply_front, apply_rear, 
             second_page.insert_image(qr_rect_bottom_left, pixmap=qr_img)
 
         # Insertar folio (si se selecciona) en la primera página con código de barras real
-        if apply_folio:
+       if apply_folio:
             folio_random = random.randint(100000, 999999)
-            barcode_text = "A30" + str(folio_random)  # Sin espacio para el código de barras
-
+            barcode_text = "A30" + str(folio_random)  # Texto para el código de barras
             first_page = output_pdf.load_page(0)
+    
+    # Insertar texto del folio
             first_page.insert_text((85, 48), "FOLIO", fontsize=14, fontname="times-bold", color=(0, 0, 0))
             first_page.insert_text((75, 65), "A30-" + str(folio_random), fontsize=12, fontname="times-bold", color=(0, 0, 0))
-
-            # Generar código de barras sin texto
+    
+    # Generar código de barras
             barcode_img = generate_barcode(barcode_text)
-            
-            if barcode_img:
-                # Insertar imagen del código de barras (ajustado para mejor visualización)
-                rect = fitz.Rect(40, 70, 175, 85)  # Rectángulo con las dimensiones adecuadas
+    
+        if barcode_img:
+        # Ajustar las coordenadas y tamaño del rectángulo para el código de barras
+        # El rectángulo es (x0, y0, x1, y1) - coordenadas de la esquina superior izquierda e inferior derecha
+                rect = fitz.Rect(45, 72, 175, 87)  # Ajustado para mejor posicionamiento
                 first_page.insert_image(rect, pixmap=barcode_img)
-
-        output_pdf.save(output_stream)
-        output_pdf.close()
-        selected_pdf.close()
-        return True, "PDF generado correctamente."
-
-    except Exception as e:
-        print(f"Error overlaying PDFs: {e}")
-        return False, f"Error al generar el PDF: {e}"
 
 # Rutas del Blueprint
 @enmarcado_bp.route('/process_pdf', methods=['POST'])
