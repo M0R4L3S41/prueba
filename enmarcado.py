@@ -78,15 +78,15 @@ def generate_barcode(text):
         # Crear un objeto BytesIO para guardar la imagen
         output = BytesIO()
         
-        # Configurar el escritor para no mostrar texto y reducir la zona de silencio
+        # Configurar el escritor para no mostrar texto
         writer = ImageWriter()
-        writer.set_options({
-            'write_text': False,  # Esto desactiva el texto debajo del código
-            'quiet_zone': 1       # Reducir la zona de silencio alrededor del código
-        })
         
         # Generar código de barras Code128 sin texto
         code128 = Code128(text, writer=writer)
+        
+        # Desactivar texto debajo del código
+        writer.options['write_text'] = False
+        
         code128.write(output)
         
         # Mover el puntero al inicio del stream
@@ -103,6 +103,7 @@ def generate_barcode(text):
     except Exception as e:
         print(f"Error generando código de barras: {e}")
         return None
+
 
 # Función modificada para superponer PDFs según las opciones seleccionadas
 def overlay_pdf_on_background(pdf_file, output_stream, apply_front, apply_rear, apply_folio):
