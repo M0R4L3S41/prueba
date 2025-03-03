@@ -165,14 +165,23 @@ def overlay_pdf_on_background(pdf_file, output_stream, apply_front, apply_rear, 
 
             first_page = output_pdf.load_page(0)
             first_page.insert_text((68, 45), "FOLIO", fontsize=14, fontname="times-bold", color=(0, 0, 0))
-            first_page.insert_text((55, 65), "A30 " + str(folio_random), fontsize=12, fontname="times-bold", color=(0, 0, 0))
-
-            # Generar imagen del código de barras
-            barcode_img = generate_barcode(barcode_text)
+            first_page.insert_text((55, 65), "A30-" + str(folio_random), fontsize=12, fontname="times-bold", color=(0, 0, 0))
             
+            # Añadir texto "CODIGO DE BARRA" debajo del código
+            first_page.insert_text((55, 130), "CODIGO DE BARRA", fontsize=10, fontname="times-bold", color=(0, 0, 0))
+
+            # Generar imagen del código de barras sin texto (solo el código visual)
+            output = BytesIO()
+            writer = ImageWriter()
+            # Configurar el writer para no mostrar texto
+            writer.text_options = {"write_text": False}
+            Code128(barcode_text, writer=writer).write(output)
+            output.seek(0)
+            
+            # Insertar imagen del código de barras entre el folio y el texto "CODIGO DE BARRA"
+            barcode_img = fitz.Pixmap(output.getvalue())
             if barcode_img:
-                # Insertar imagen del código de barras justo debajo del texto
-                first_page.insert_image(fitz.Rect(55, 80, 200, 120), pixmap=barcode_img)
+                first_page.insert_image(fitz.Rect(55, 75, 200, 125), pixmap=barcode_img)
 
         output_pdf.save(output_stream)
         output_pdf.close()
@@ -222,3 +231,4 @@ def process_pdf():
 # Configuración del servidor para producción o local
 if __name__ == '__main__':
     app.run(debug=os.getenv("FLASK_DEBUG", False), host='0.0.0.0', port=os.getenv("PORT", 5001))
+
