@@ -10,4 +10,5 @@ Flask-SocketIO
 gevent
 waitress
 flask-cors
+python-barcode
 
