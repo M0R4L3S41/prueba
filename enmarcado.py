@@ -77,8 +77,7 @@ def generate_qr_code(text):
 
 def generate_barcode(text):
     """
-    Genera un código de barras vectorial y lo devuelve como un objeto Pixmap de PyMuPDF.
-    Usa SVG como formato intermedio para mantener la calidad vectorial.
+    Genera un código de barras vectorial sin texto y lo devuelve como un objeto Pixmap de PyMuPDF.
     """
     try:
         from barcode import Code128
@@ -90,80 +89,113 @@ def generate_barcode(text):
         # Crear un objeto StringIO para el contenido SVG
         svg_io = StringIO()
         
-        # Configurar el escritor SVG con dimensiones y opciones optimizadas
+        # Configurar el escritor SVG con opciones que eliminen completamente el texto
         svg_options = {
-            'write_text': False,      # Sin texto debajo del código
+            'write_text': False,      # Desactivar el texto
+            'text': '',               # Texto vacío
             'module_height': 15,      # Altura de las barras en mm
-            'module_width': 0.25,     # Ancho de cada barra (más delgado para mayor definición)
+            'module_width': 0.25,     # Ancho de cada barra
             'quiet_zone': 3,          # Margen de seguridad
-            'font_size': 0,           # Sin texto
-            'dpi': 300                # Alta resolución
+            'font_size': 0,           # Tamaño de fuente cero
+            'dpi': 300,               # Alta resolución
+            'text_distance': 0        # Sin distancia para texto
         }
         
-        # Generar código de barras Code128 sin texto en formato SVG
+        # Generar código de barras Code128 en formato SVG
         Code128(text, writer=SVGWriter(svg_options)).write(svg_io)
         
-        # Obtener el contenido SVG y optimizarlo
+        # Obtener el contenido SVG
         svg_content = svg_io.getvalue()
         
-        # Extraer y ajustar las dimensiones del SVG 
+        # Eliminar cualquier elemento de texto en el SVG usando expresiones regulares
+        svg_content = re.sub(r'<text.*?</text>', '', svg_content, flags=re.DOTALL)
+        
+        # Ajustar las dimensiones del SVG para recortar la parte inferior donde aparecería el texto
         width_match = re.search(r'width="(\d+(\.\d+)?)"', svg_content)
         height_match = re.search(r'height="(\d+(\.\d+)?)"', svg_content)
         
         if width_match and height_match:
-            # Ajustar a dimensiones apropiadas manteniendo proporción
+            original_height = float(height_match.group(1))
+            # Usar solo el 60% superior del SVG para eliminar el área donde estaría el texto
+            new_height = original_height * 0.6
+            
             svg_content = svg_content.replace(
                 f'width="{width_match.group(1)}"', 'width="130"'
             ).replace(
-                f'height="{height_match.group(1)}"', 'height="20"'
+                f'height="{height_match.group(1)}"', f'height="{new_height}"'
             )
+            
+            # Ajustar el viewBox para recortar la parte inferior
+            viewbox_match = re.search(r'viewBox="([^"]*)"', svg_content)
+            if viewbox_match:
+                viewbox_parts = viewbox_match.group(1).split(' ')
+                if len(viewbox_parts) == 4:
+                    viewbox_parts[3] = str(float(viewbox_parts[3]) * 0.6)  # Reducir altura del viewBox
+                    new_viewbox = ' '.join(viewbox_parts)
+                    svg_content = svg_content.replace(viewbox_match.group(0), f'viewBox="{new_viewbox}"')
         
-        # Convertir el SVG a PNG con resolución muy alta para preservar calidad
+        # Convertir el SVG modificado a PNG con alta resolución
         png_data = BytesIO()
         svg2png(
             bytestring=svg_content.encode('utf-8'),
             write_to=png_data,
-            output_width=390,  # Triplicar resolución (130 × 3)
-            output_height=60,  # Triplicar resolución (20 × 3)
-            scale=3.0          # Factor de escala adicional
+            output_width=390,
+            output_height=40,  # Reducir altura para evitar espacio en blanco
+            scale=3.0
         )
         png_data.seek(0)
         
-        # Crear un Pixmap de PyMuPDF con la imagen de alta calidad
+        # Crear un Pixmap de PyMuPDF
         barcode_img = fitz.Pixmap(png_data)
-        
         return barcode_img
         
     except Exception as e:
         print(f"Error generando código de barras SVG: {e}")
-        # Método alternativo con ImageWriter - también optimizado para mayor calidad
+        # Método alternativo usando PIL/Pillow
         try:
-            from PIL import Image
-            output = BytesIO()
+            from PIL import Image, ImageDraw
+            from barcode import Code128
             from barcode.writer import ImageWriter
             
-            # Configurar opciones para calidad más alta
-            writer = ImageWriter()
-            writer.dpi = 300  # Mayor DPI para mejor calidad
-            writer.module_width = 0.2  # Barras más delgadas para más definición
-            writer.module_height = 15.0
-            writer.quiet_zone = 3.0
-            writer.font_size = 0  # Sin texto
-            writer.background = (255, 255, 255)  # Fondo blanco
-            writer.foreground = (0, 0, 0)  # Barras negras
+            # Configurar opciones personalizadas para el ImageWriter
+            class CustomImageWriter(ImageWriter):
+                def _paint_text(self, *args, **kwargs):
+                    # Sobrescribir el método de pintar texto para que no haga nada
+                    pass
             
-            # Generar código de barras de alta calidad
+            # Crear un escritor personalizado
+            writer = CustomImageWriter()
+            writer.set_options({
+                'write_text': False,
+                'text': '',
+                'font_size': 0,
+                'text_distance': 0,
+                'module_height': 15.0,
+                'module_width': 0.2,
+                'quiet_zone': 3.0,
+                'background': (255, 255, 255),
+                'foreground': (0, 0, 0),
+                'dpi': 300
+            })
+            
+            # Generar código de barras
+            output = BytesIO()
             Code128(text, writer=writer).write(output)
             output.seek(0)
             
-            # Abrir la imagen y procesar para mejorar nitidez
+            # Abrir la imagen
             img = Image.open(output)
-            # Redimensionar con algoritmo de alta calidad
-            img = img.resize((390, 60), Image.LANCZOS)
-            # Recortar los márgenes adicionales si fuera necesario
-            # img = img.crop((0, 0, 390, 60))
             
-            # Guardar con formato PNG sin compresión para mejor calidad
+            # Recortar la parte inferior para eliminar cualquier espacio donde podría estar el texto
+            width, height = img.size
+            # Conservar solo el 60% superior de la imagen
+            new_height = int(height * 0.6)
+            img = img.crop((0, 0, width, new_height))
+            
+            # Redimensionar con algoritmo de alta calidad
+            img = img.resize((390, 40), Image.LANCZOS)
+            
+            # Guardar con formato PNG sin compresión
             img_bytes = BytesIO()
             img.save(img_bytes, format="PNG", optimize=False, compression=0)
             img_bytes.seek(0)
@@ -173,7 +205,6 @@ def generate_barcode(text):
         except Exception as backup_error:
             print(f"Error en método de respaldo: {backup_error}")
             return None
-
 def overlay_pdf_on_background(pdf_file, output_stream, apply_front, apply_rear, apply_folio):
     """Superpone PDFs según las opciones seleccionadas."""
     try:
@@ -255,7 +286,7 @@ def overlay_pdf_on_background(pdf_file, output_stream, apply_front, apply_rear, 
             if barcode_img:
                 # Insertar imagen del código de barras con alta calidad
                 # Ajustar el tamaño y posición para mejor visualización
-                rect = fitz.Rect(45, 72, 175, 92)
+                rect = fitz.Rect(45, 72, 175, 87)
                 
                 # Usar método mejorado para inserción
                 first_page.insert_image(
