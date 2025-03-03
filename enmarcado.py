@@ -76,77 +76,100 @@ def generate_qr_code(text):
     return qr_img_fitz
 
 def generate_barcode(text):
-    """Genera un código de barras SVG en memoria y devuelve un objeto Pixmap de PyMuPDF."""
+    """
+    Genera un código de barras vectorial y lo devuelve como un objeto Pixmap de PyMuPDF.
+    Usa SVG como formato intermedio para mantener la calidad vectorial.
+    """
     try:
+        from barcode import Code128
         from barcode.writer import SVGWriter
         from io import StringIO
         import re
+        from cairosvg import svg2png
         
         # Crear un objeto StringIO para el contenido SVG
         svg_io = StringIO()
         
-        # Configurar el escritor SVG con dimensiones específicas
-        options = {
-            'write_text': False,      # Desactivar el texto debajo del código
-            'module_height': 15,      # Altura de las barras en px
-            'module_width': 0.6,      # Ancho de cada barra individual (ajustado para mejor visualización)
-            'quiet_zone': 3,          # Pequeño margen de seguridad
-            'font_size': 0            # Asegurar que no haya texto
+        # Configurar el escritor SVG con dimensiones y opciones optimizadas
+        svg_options = {
+            'write_text': False,      # Sin texto debajo del código
+            'module_height': 15,      # Altura de las barras en mm
+            'module_width': 0.25,     # Ancho de cada barra (más delgado para mayor definición)
+            'quiet_zone': 3,          # Margen de seguridad
+            'font_size': 0,           # Sin texto
+            'dpi': 300                # Alta resolución
         }
         
         # Generar código de barras Code128 sin texto en formato SVG
-        Code128(text, writer=SVGWriter(options)).write(svg_io)
+        Code128(text, writer=SVGWriter(svg_options)).write(svg_io)
         
-        # Obtener el contenido SVG
+        # Obtener el contenido SVG y optimizarlo
         svg_content = svg_io.getvalue()
         
-        # Convertir SVG a PNG para usar con fitz
-        from cairosvg import svg2png
-        png_data = BytesIO()
-        
-        # Extraer las dimensiones del SVG para redimensionarlo
+        # Extraer y ajustar las dimensiones del SVG 
         width_match = re.search(r'width="(\d+(\.\d+)?)"', svg_content)
         height_match = re.search(r'height="(\d+(\.\d+)?)"', svg_content)
         
         if width_match and height_match:
-            # Ajustar el SVG para que tenga dimensiones específicas
+            # Ajustar a dimensiones apropiadas manteniendo proporción
             svg_content = svg_content.replace(
                 f'width="{width_match.group(1)}"', 'width="130"'
             ).replace(
-                f'height="{height_match.group(1)}"', 'height="15"'
+                f'height="{height_match.group(1)}"', 'height="20"'
             )
         
-        # Convertir el SVG a PNG con una resolución específica
-        svg2png(bytestring=svg_content.encode('utf-8'),
-        write_to=png_data,
-        output_width=130,
-        output_height=15)
+        # Convertir el SVG a PNG con resolución muy alta para preservar calidad
+        png_data = BytesIO()
+        svg2png(
+            bytestring=svg_content.encode('utf-8'),
+            write_to=png_data,
+            output_width=390,  # Triplicar resolución (130 × 3)
+            output_height=60,  # Triplicar resolución (20 × 3)
+            scale=3.0          # Factor de escala adicional
+        )
         png_data.seek(0)
         
-        # Crear un Pixmap de PyMuPDF
+        # Crear un Pixmap de PyMuPDF con la imagen de alta calidad
         barcode_img = fitz.Pixmap(png_data)
         
         return barcode_img
+        
     except Exception as e:
         print(f"Error generando código de barras SVG: {e}")
-        # Si falla, intentar con el método alternativo de ImageWriter
+        # Método alternativo con ImageWriter - también optimizado para mayor calidad
         try:
+            from PIL import Image
             output = BytesIO()
+            from barcode.writer import ImageWriter
+            
+            # Configurar opciones para calidad más alta
             writer = ImageWriter()
-            writer.options = {"write_text": False}
+            writer.dpi = 300  # Mayor DPI para mejor calidad
+            writer.module_width = 0.2  # Barras más delgadas para más definición
+            writer.module_height = 15.0
+            writer.quiet_zone = 3.0
+            writer.font_size = 0  # Sin texto
+            writer.background = (255, 255, 255)  # Fondo blanco
+            writer.foreground = (0, 0, 0)  # Barras negras
+            
+            # Generar código de barras de alta calidad
             Code128(text, writer=writer).write(output)
             output.seek(0)
             
+            # Abrir la imagen y procesar para mejorar nitidez
             img = Image.open(output)
-            # Redimensionar a dimensiones específicas
-            img = img.resize((130, 15), Image.LANCZOS)
-            # Eliminar márgenes adicionales recortando la imagen
-            img = img.crop((0, 0, 130, 15))
+            # Redimensionar con algoritmo de alta calidad
+            img = img.resize((390, 60), Image.LANCZOS)
+            # Recortar los márgenes adicionales si fuera necesario
+            # img = img.crop((0, 0, 390, 60))
+            
+            # Guardar con formato PNG sin compresión para mejor calidad
             img_bytes = BytesIO()
-            img.save(img_bytes, format="PNG")
+            img.save(img_bytes, format="PNG", optimize=False, compression=0)
             img_bytes.seek(0)
             
             return fitz.Pixmap(img_bytes)
+            
         except Exception as backup_error:
             print(f"Error en método de respaldo: {backup_error}")
             return None
@@ -230,17 +253,16 @@ def overlay_pdf_on_background(pdf_file, output_stream, apply_front, apply_rear, 
             
             if barcode_img:
                 # Insertar imagen del código de barras (ajustado para mejor visualización)
-                rect = fitz.Rect(45, 72, 175, 87)
-                first_page.insert_image(rect, pixmap=barcode_img)
+                rect = fitz.Rect(45, 72, 175, 92)
 
-        output_pdf.save(output_stream)
-        output_pdf.close()
-        selected_pdf.close()
-        return True, "PDF generado correctamente."
-
-    except Exception as e:
-        print(f"Error overlaying PDFs: {e}")
-        return False, f"Error al generar el PDF: {e}"
+                # Usar método mejorado para inserción
+                first_page.insert_image(
+                    rect, 
+                    pixmap=barcode_img,
+                    keep_proportion=True,  # Mantener proporción
+                    overlay=True  # Superponer sin modificar el fondo
+                )
+                    
 
 # Rutas del Blueprint
 @enmarcado_bp.route('/process_pdf', methods=['POST'])
