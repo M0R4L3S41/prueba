@@ -78,15 +78,27 @@ def generate_barcode(text):
         # Crear un objeto BytesIO para guardar la imagen
         output = BytesIO()
         
-        # Generar código de barras Code128
-        Code128(text, writer=ImageWriter()).write(output)
+        # Configurar el escritor para no mostrar texto y reducir la zona de silencio
+        writer = ImageWriter()
+        writer.set_options({
+            'write_text': False,  # Esto desactiva el texto debajo del código
+            'quiet_zone': 1       # Reducir la zona de silencio alrededor del código
+        })
+        
+        # Generar código de barras Code128 sin texto
+        code128 = Code128(text, writer=writer)
+        code128.write(output)
         
         # Mover el puntero al inicio del stream
         output.seek(0)
-        
-        # Crear un Pixmap de PyMuPDF
-        barcode_img = fitz.Pixmap(output.getvalue())
-        
+
+        # Guardar la imagen temporalmente para usarla con fitz
+        with open("temp_barcode.png", "wb") as f:
+            f.write(output.getvalue())
+
+        # Crear un Pixmap de PyMuPDF a partir de la imagen generada
+        barcode_img = fitz.open("temp_barcode.png")
+
         return barcode_img
     except Exception as e:
         print(f"Error generando código de barras: {e}")
@@ -167,10 +179,7 @@ def overlay_pdf_on_background(pdf_file, output_stream, apply_front, apply_rear, 
             first_page.insert_text((68, 45), "FOLIO", fontsize=14, fontname="times-bold", color=(0, 0, 0))
             first_page.insert_text((55, 65), "A30-" + str(folio_random), fontsize=12, fontname="times-bold", color=(0, 0, 0))
             
-            # Añadir texto "CODIGO DE BARRA" debajo del código
-            first_page.insert_text((55, 130), "CODIGO DE BARRA", fontsize=10, fontname="times-bold", color=(0, 0, 0))
-
-            # Generar imagen del código de barras sin texto (solo el código visual)
+           # Generar imagen del código de barras sin texto (solo el código visual)
             output = BytesIO()
             writer = ImageWriter()
             # Configurar el writer para no mostrar texto
