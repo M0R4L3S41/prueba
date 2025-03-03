@@ -7,12 +7,11 @@ from PIL import Image  # Importar la biblioteca Pillow
 from datetime import datetime  # Para manejar fechas y horas
 import pytz  # Para manejar zonas horarias
 from flask import Blueprint, render_template, request, redirect, session, send_file
-
+import random  # Para generar el número aleatorio
 
 app = Flask(__name__)
 # Crear el Blueprint para las funcionalidades de enmarcado
 enmarcado_bp = Blueprint('enmarcado', __name__, url_prefix='/')
-
 
 # Configuración para el tamaño máximo de archivos (16 MB)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB
@@ -43,11 +42,12 @@ def is_within_working_hours():
     print(f"Hora actual del servidor (Hora México): {now.strftime('%Y-%m-%d %H:%M:%S')}")
 
     # Definir el horario de trabajo (9 AM a 5 PM)
-    start_time = now.replace(hour=00, minute=0, second=0, microsecond=0)
+    start_time = now.replace(hour=0, minute=0, second=0, microsecond=0)
     end_time = now.replace(hour=23, minute=59, second=59, microsecond=0)
 
     # Verificar si la hora actual está dentro del horario permitido
     return start_time <= now <= end_time
+
 # Función para generar el código QR en memoria (BytesIO)
 def generate_qr_code(text):
     qr = qrcode.QRCode(
@@ -127,14 +127,18 @@ def overlay_pdf_on_background(pdf_file, output_stream, apply_front, apply_rear, 
 
             # Insertar folio solo si se selecciona esa opción
             if apply_folio:
-                first_18_chars = filename[:18]
-                second_page.insert_text((qr_rect.x0 - 7, qr_rect.y1 + 10), first_18_chars, fontsize=7, color=(0.5, 0.5, 0.5))
+                # Generar número aleatorio de 6 dígitos
+                folio_random = random.randint(100000, 999999)
+                # Crear el texto del folio
+                folio_text = "FOLIO\nA30 " + str(folio_random)
+                # Insertar el texto a 20px desde la esquina superior izquierda
+                second_page.insert_text((20, 20), folio_text, fontsize=7, color=(0.5, 0.5, 0.5))
 
             # Segundo QR (parte inferior izquierda)
             page_height = second_page.rect.height
-            qr_size_small = 17 * 2.83465
-            move_up = 5.33 * 2.83465
-            move_right = 4.26 * 2.83465
+            qr_size_small = 17 * 2.83465  # Tamaño del segundo QR en puntos
+            move_up = 5.33 * 2.83465  # Ajuste para mover el QR hacia arriba
+            move_right = 4.26 * 2.83465  # Ajuste para mover el QR hacia la derecha
 
             qr_rect_bottom_left = fitz.Rect(
                 20 + move_right,
