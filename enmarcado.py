@@ -122,7 +122,49 @@ def overlay_pdf_on_background(pdf_file, output_stream, apply_front, apply_rear, 
     except Exception as e:
         return False, f"Error: {e}"
 
+# Rutas del Blueprint
+@enmarcado_bp.route('/process_pdf', methods=['POST'])
+def process_pdf():
+    """Procesa el PDF según las opciones seleccionadas."""
+    if not is_within_working_hours():
+        return "El servicio no está disponible fuera del horario de 9 AM a 5 PM.", 403
+    
+    try:
+        if 'pdf_file' not in request.files:
+            print("No file in request.files")
+            return 'No file uploaded', 400
+
+        pdf_file = request.files['pdf_file']
+        print(f"Archivo recibido: {pdf_file.filename}")
+        
+        if pdf_file.filename == '':
+            print("No file selected")
+            return 'No selected file', 400
+        
+        # Leer las opciones de enmarcado del formulario
+        apply_front = True if request.form.get('front_frame') == 'on' else False
+        apply_rear  = True if request.form.get('rear_frame')  == 'on' else False
+        apply_folio = True if request.form.get('folio')       == 'on' else False
+
+        output_stream = BytesIO()
+        success, message = overlay_pdf_on_background(pdf_file, output_stream, apply_front, apply_rear, apply_folio)
+        if not success:
+            print(f"Error generando el PDF: {message}")
+            return message, 500
+
+        output_stream.seek(0)
+        return send_file(output_stream, as_attachment=True, download_name=f"_{pdf_file.filename}", mimetype='application/pdf')
+
+    except Exception as e:
+        print(f"Error procesando PDF: {e}")
+        return 'Error procesando archivo PDF', 500
+
+# Registrar el Blueprint con la aplicación
 app.register_blueprint(enmarcado_bp)
 
-if _name_ == "_main_":
-    app.run(debug=True, host="0.0.0.0", port=int(os.getenv("PORT", 5001)))
+# Configuración del servidor para producción o local
+if _name_ == '_main_':
+    app.run(debug=os.getenv("FLASK_DEBUG", False), host='0.0.0.0', port=os.getenv("PORT", 5001))
+
+if _name_ == '_main_':
+    app.run(debug=os.getenv("FLASK_DEBUG", False), host='0.0.0.0', port=os.getenv("PORT", 5001))
