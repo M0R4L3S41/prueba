@@ -117,7 +117,10 @@ def generate_barcode(text):
             )
         
         # Convertir el SVG a PNG con una resolución específica
-        svg2png(bytestring=svg_content.encode('utf-8'), write_to=png_data, scale=1.0)
+        svg2png(bytestring=svg_content.encode('utf-8'),
+        write_to=png_data,
+        output_width=130,
+        output_height=15)
         png_data.seek(0)
         
         # Crear un Pixmap de PyMuPDF
