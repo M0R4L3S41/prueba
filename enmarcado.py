@@ -227,7 +227,7 @@ def overlay_pdf_on_background(pdf_file, output_stream, apply_front, apply_rear, 
             
             if barcode_img:
                 # Insertar imagen del código de barras (ajustado para mejor visualización)
-                rect = fitz.Rect(40, 70, 175, 85)  # Rectángulo con las dimensiones adecuadas
+                rect = fitz.Rect(45, 72, 175, 87)
                 first_page.insert_image(rect, pixmap=barcode_img)
 
         output_pdf.save(output_stream)
