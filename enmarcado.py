@@ -85,12 +85,13 @@ def generate_barcode(text):
         # Crear un objeto StringIO para el contenido SVG
         svg_io = StringIO()
         
-        # Configurar el escritor SVG para no mostrar texto
+        # Configurar el escritor SVG con dimensiones específicas
         options = {
-            'write_text': False,  # Desactivar el texto debajo del código
-            'module_height': 15,  # Altura de las barras en px
-            'module_width': 0,  # Ancho de cada barra individual (para que el total sea aproximadamente 150px)
-            'quiet_zone': 0       # Reducir el espacio en blanco alrededor del código
+            'write_text': False,      # Desactivar el texto debajo del código
+            'module_height': 15,      # Altura de las barras en px
+            'module_width': 0.6,      # Ancho de cada barra individual (ajustado para mejor visualización)
+            'quiet_zone': 3,          # Pequeño margen de seguridad
+            'font_size': 0            # Asegurar que no haya texto
         }
         
         # Generar código de barras Code128 sin texto en formato SVG
@@ -108,19 +109,15 @@ def generate_barcode(text):
         height_match = re.search(r'height="(\d+(\.\d+)?)"', svg_content)
         
         if width_match and height_match:
-            # Asegurar que el SVG tenga las dimensiones correctas
-            original_width = float(width_match.group(1))
-            original_height = float(height_match.group(1))
-            
-            # Ajustar el SVG para que tenga exactamente 150x15 px
+            # Ajustar el SVG para que tenga dimensiones específicas
             svg_content = svg_content.replace(
-                f'width="{original_width}"', 'width="100"'
+                f'width="{width_match.group(1)}"', 'width="130"'
             ).replace(
-                f'height="{original_height}"', 'height="15"'
+                f'height="{height_match.group(1)}"', 'height="15"'
             )
         
-        # Convertir el SVG a PNG
-        svg2png(bytestring=svg_content.encode('utf-8'), write_to=png_data)
+        # Convertir el SVG a PNG con una resolución específica
+        svg2png(bytestring=svg_content.encode('utf-8'), write_to=png_data, scale=1.0)
         png_data.seek(0)
         
         # Crear un Pixmap de PyMuPDF
@@ -129,7 +126,7 @@ def generate_barcode(text):
         return barcode_img
     except Exception as e:
         print(f"Error generando código de barras SVG: {e}")
-        # Si falla, intentar con el método anterior de ImageWriter
+        # Si falla, intentar con el método alternativo de ImageWriter
         try:
             output = BytesIO()
             writer = ImageWriter()
@@ -138,8 +135,10 @@ def generate_barcode(text):
             output.seek(0)
             
             img = Image.open(output)
-            # Redimensionar a 150x15 px
-            img = img.resize((120, 15), Image.LANCZOS)
+            # Redimensionar a dimensiones específicas
+            img = img.resize((130, 15), Image.LANCZOS)
+            # Eliminar márgenes adicionales recortando la imagen
+            img = img.crop((0, 0, 130, 15))
             img_bytes = BytesIO()
             img.save(img_bytes, format="PNG")
             img_bytes.seek(0)
