@@ -80,30 +80,28 @@ def generate_barcode(text):
         
         # Configurar el escritor para no mostrar texto
         writer = ImageWriter()
-        
+        writer.options['write_text'] = False  # Desactivar el texto debajo del código
+
         # Generar código de barras Code128 sin texto
         code128 = Code128(text, writer=writer)
-        
-        # Desactivar texto debajo del código
-        writer.options['write_text'] = False
-        
         code128.write(output)
         
         # Mover el puntero al inicio del stream
         output.seek(0)
 
-        # Guardar la imagen temporalmente para usarla con fitz
-        with open("temp_barcode.png", "wb") as f:
-            f.write(output.getvalue())
+        # Usar PIL para convertir los datos de BytesIO a un formato que fitz pueda usar (por ejemplo, PNG)
+        img = Image.open(output)
+        img_bytes = BytesIO()
+        img.save(img_bytes, format="PNG")
+        img_bytes.seek(0)
 
-        # Crear un Pixmap de PyMuPDF a partir de la imagen generada
-        barcode_img = fitz.open("temp_barcode.png")
+        # Crear un Pixmap de PyMuPDF a partir de la imagen en memoria
+        barcode_img = fitz.Pixmap(img_bytes)
 
         return barcode_img
     except Exception as e:
         print(f"Error generando código de barras: {e}")
         return None
-
 
 # Función modificada para superponer PDFs según las opciones seleccionadas
 def overlay_pdf_on_background(pdf_file, output_stream, apply_front, apply_rear, apply_folio):
