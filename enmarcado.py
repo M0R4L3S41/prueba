@@ -143,10 +143,10 @@ def overlay_pdf_on_background(pdf_file, output_stream, apply_front, apply_rear, 
             # Usar la primera página (índice 0)
             first_page = output_pdf.load_page(0)
             # Insertar "FOLIO" en (45, 89)
-            first_page.insert_text((50, 45), "FOLIO", fontsize=14,fontname="times-bold", color=(0, 0, 0))
+            first_page.insert_text((60, 45), "FOLIO", fontsize=14,fontname="times-bold", color=(0, 0, 0))
             # Insertar debajo el código de barras en (45, 109)
             barcode_text = "A30 " + str(folio_random)
-            first_page.insert_text((45, 60), barcode_text, fontsize=12, color=(0, 0, 0))
+            first_page.insert_text((55, 60), barcode_text, fontsize=12, color=(0, 0, 0))
 
         output_pdf.save(output_stream)
         output_pdf.close()
