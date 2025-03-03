@@ -76,81 +76,46 @@ def generate_qr_code(text):
     return qr_img_fitz
 
 def generate_barcode(text):
-    """Genera un código de barras SVG en memoria y devuelve un objeto Pixmap de PyMuPDF."""
+    """Genera un código de barras en SVG y lo convierte en un Pixmap de alta calidad para PDF."""
     try:
-        from barcode.writer import SVGWriter
-        from io import StringIO
-        import re
-        
-        # Crear un objeto StringIO para el contenido SVG
+        # Crear un objeto StringIO para capturar el SVG
         svg_io = StringIO()
-        
-        # Configurar el escritor SVG con dimensiones específicas
         options = {
-            'write_text': False,      # Desactivar el texto debajo del código
-            'module_height': 15,      # Altura de las barras en px
-            'module_width': 0.6,      # Ancho de cada barra individual (ajustado para mejor visualización)
-            'quiet_zone': 3,          # Pequeño margen de seguridad
-            'font_size': 0            # Asegurar que no haya texto
+            'write_text': False,
+            'module_height': 15,  # Altura en píxeles
+            'module_width': 0.3,  # Ancho mínimo de cada barra
+            'quiet_zone': 1
         }
-        
-        # Generar código de barras Code128 sin texto en formato SVG
-        Code128(text, writer=SVGWriter(options)).write(svg_io)
-        
-        # Obtener el contenido SVG
+
+        # Generar código de barras en SVG
+        Code128(text, writer=SVGWriter()).write(svg_io, options=options)
         svg_content = svg_io.getvalue()
-        
-        # Convertir SVG a PNG para usar con fitz
-        from cairosvg import svg2png
-        png_data = BytesIO()
-        
-        # Extraer las dimensiones del SVG para redimensionarlo
+
+        # Ajustar dimensiones en SVG
         width_match = re.search(r'width="(\d+(\.\d+)?)"', svg_content)
         height_match = re.search(r'height="(\d+(\.\d+)?)"', svg_content)
-        
+
         if width_match and height_match:
-            # Ajustar el SVG para que tenga dimensiones específicas
-            svg_content = svg_content.replace(
-                f'width="{width_match.group(1)}"', 'width="130"'
-            ).replace(
-                f'height="{height_match.group(1)}"', 'height="15"'
-            )
-        
-        # Convertir el SVG a PNG con una resolución específica
-        svg2png(bytestring=svg_content.encode('utf-8'), write_to=png_data, scale=1.0)
+            svg_content = svg_content.replace(width_match.group(0), 'width="120"')
+            svg_content = svg_content.replace(height_match.group(0), 'height="15"')
+
+        # Convertir el SVG a PNG
+        png_data = BytesIO()
+        svg2png(bytestring=svg_content.encode('utf-8'), write_to=png_data, dpi=300)
         png_data.seek(0)
-        
-        # Crear un Pixmap de PyMuPDF
-        barcode_img = fitz.Pixmap(png_data)
-        
+
+        # Crear un Pixmap de fitz
+        barcode_img = fitz.open("png", png_data.read())
+
         return barcode_img
     except Exception as e:
         print(f"Error generando código de barras SVG: {e}")
-        # Si falla, intentar con el método alternativo de ImageWriter
-        try:
-            output = BytesIO()
-            writer = ImageWriter()
-            writer.options = {"write_text": False}
-            Code128(text, writer=writer).write(output)
-            output.seek(0)
-            
-            img = Image.open(output)
-            # Redimensionar a dimensiones específicas
-            img = img.resize((130, 15), Image.LANCZOS)
-            # Eliminar márgenes adicionales recortando la imagen
-            img = img.crop((0, 0, 130, 15))
-            img_bytes = BytesIO()
-            img.save(img_bytes, format="PNG")
-            img_bytes.seek(0)
-            
-            return fitz.Pixmap(img_bytes)
-        except Exception as backup_error:
-            print(f"Error en método de respaldo: {backup_error}")
-            return None
+        return None
+
 def overlay_pdf_on_background(pdf_file, output_stream, apply_front, apply_rear, apply_folio):
     """Superpone PDFs según las opciones seleccionadas."""
     try:
-        # Leer el PDF subido en memoria
+        # Leer el PDF en memoria
         try:
             selected_pdf = fitz.open(stream=pdf_file.read(), filetype="pdf")
         except Exception as e:
@@ -161,7 +126,7 @@ def overlay_pdf_on_background(pdf_file, output_stream, apply_front, apply_rear, 
 
         output_pdf = fitz.open()
 
-        # Si se selecciona el enmarcado delantero, se usa el PDF de fondo (marcoparaactas.pdf)
+        # 🟢 Aplicar fondo delantero (marco)
         if apply_front:
             background_pdf = fitz.open(BACKGROUND_PDF_PATH)
             for page_num in range(len(background_pdf)):
@@ -169,69 +134,61 @@ def overlay_pdf_on_background(pdf_file, output_stream, apply_front, apply_rear, 
                 new_page = output_pdf.new_page(width=background_page.rect.width, height=background_page.rect.height)
                 new_page.show_pdf_page(new_page.rect, background_pdf, page_num)
                 if page_num < len(selected_pdf):
-                    selected_page = selected_pdf.load_page(page_num)
                     new_page.show_pdf_page(new_page.rect, selected_pdf, page_num)
             background_pdf.close()
         else:
-            # Si NO se selecciona el delantero, se agregan las páginas del PDF subido directamente
             for page_num in range(len(selected_pdf)):
                 selected_page = selected_pdf.load_page(page_num)
                 new_page = output_pdf.new_page(width=selected_page.rect.width, height=selected_page.rect.height)
                 new_page.show_pdf_page(new_page.rect, selected_pdf, page_num)
 
-        # Si se selecciona el enmarcado trasero, se agregan los marcos (segunda parte)
+        # 🟢 Aplicar fondo trasero (según estado)
         if apply_rear:
-            filename = os.path.basename(pdf_file.filename)
-            state_abbr = filename[11:13].upper()
-            if state_abbr in ESTADOS:
-                state_pdf_path = os.path.join(MARCOS_FOLDER, f"{state_abbr}.pdf")
-                if os.path.exists(state_pdf_path):
-                    state_pdf = fitz.open(state_pdf_path)
-                    for state_page_num in range(len(state_pdf)):
-                        new_page = output_pdf.new_page(width=state_pdf[state_page_num].rect.width, height=state_pdf[state_page_num].rect.height)
-                        new_page.show_pdf_page(new_page.rect, state_pdf, state_page_num)
-                    state_pdf.close()
+            try:
+                filename = getattr(pdf_file, 'filename', "unknown.pdf")
+                state_abbr = filename[11:13].upper()
+                if state_abbr in ESTADOS:
+                    state_pdf_path = os.path.join(MARCOS_FOLDER, f"{state_abbr}.pdf")
+                    if os.path.exists(state_pdf_path):
+                        state_pdf = fitz.open(state_pdf_path)
+                        for state_page_num in range(len(state_pdf)):
+                            new_page = output_pdf.new_page(width=state_pdf[state_page_num].rect.width, height=state_pdf[state_page_num].rect.height)
+                            new_page.show_pdf_page(new_page.rect, state_pdf, state_page_num)
+                        state_pdf.close()
+            except Exception as e:
+                print(f"Error al cargar fondo trasero: {e}")
 
-        # Insertar códigos QR en la segunda página (parte inferior izquierda) se mantiene sin cambios
+        # 🟢 Insertar QR en la segunda página
         if len(output_pdf) > 1:
-            filename = os.path.basename(pdf_file.filename)
-            qr_img = generate_qr_code(filename)
+            qr_img = generate_qr_code("QR_Data")  # Modifica aquí si necesitas datos dinámicos
             second_page = output_pdf.load_page(1)
-            # Primer QR (parte superior)
-            qr_rect = fitz.Rect(34, 24, 95, 88)
-            second_page.insert_image(qr_rect, pixmap=qr_img)
-            # Segundo QR (parte inferior izquierda)
-            page_height = second_page.rect.height
-            qr_size_small = 17 * 2.83465  # Tamaño del segundo QR en puntos
-            move_up = 5.33 * 2.83465  # Ajuste para mover el QR hacia arriba
-            move_right = 4.26 * 2.83465  # Ajuste para mover el QR hacia la derecha
-            qr_rect_bottom_left = fitz.Rect(
-                20 + move_right,
-                (page_height - qr_size_small - 10) - move_up,
-                (20 + qr_size_small + move_right),
-                (page_height - 10) - move_up
-            )
-            second_page.insert_image(qr_rect_bottom_left, pixmap=qr_img)
+            second_page.insert_image(fitz.Rect(34, 24, 95, 88), pixmap=qr_img)
+            second_page.insert_image(fitz.Rect(20, second_page.rect.height - 45, 55, second_page.rect.height - 10), pixmap=qr_img)
 
-        # Insertar folio (si se selecciona) en la primera página con código de barras real
-       if apply_folio:
-            folio_random = random.randint(100000, 999999)
-            barcode_text = "A30" + str(folio_random)  # Texto para el código de barras
-            first_page = output_pdf.load_page(0)
-    
-    # Insertar texto del folio
-            first_page.insert_text((85, 48), "FOLIO", fontsize=14, fontname="times-bold", color=(0, 0, 0))
-            first_page.insert_text((75, 65), "A30-" + str(folio_random), fontsize=12, fontname="times-bold", color=(0, 0, 0))
-    
-    # Generar código de barras
-            barcode_img = generate_barcode(barcode_text)
-    
-        if barcode_img:
-        # Ajustar las coordenadas y tamaño del rectángulo para el código de barras
-        # El rectángulo es (x0, y0, x1, y1) - coordenadas de la esquina superior izquierda e inferior derecha
-                rect = fitz.Rect(45, 72, 175, 87)  # Ajustado para mejor posicionamiento
-                first_page.insert_image(rect, pixmap=barcode_img)
+        # 🟢 Insertar Folio y Código de Barras
+        if apply_folio:
+            try:
+                folio_random = random.randint(100000, 999999)
+                barcode_text = "A30" + str(folio_random)
 
+                first_page = output_pdf.load_page(0)
+                first_page.insert_text((85, 48), "FOLIO", fontsize=14, fontname="times-bold", color=(0, 0, 0))
+                first_page.insert_text((75, 65), "A30-" + str(folio_random), fontsize=12, fontname="times-bold", color=(0, 0, 0))
+
+                # Generar código de barras
+                barcode_img = generate_barcode(barcode_text)
+                
+                if barcode_img:
+                    first_page.insert_image(fitz.Rect(45, 72, 175, 87), pixmap=barcode_img)
+                else:
+                    print("❌ Error: No se pudo generar el código de barras.")
+            except Exception as e:
+                print(f"❌ Error al insertar el folio: {e}")
+
+        output_pdf.save(output_stream)
+        return True, None
+    except Exception as e:
+        return False, f"❌ Error general: {e}"
 # Rutas del Blueprint
 @enmarcado_bp.route('/process_pdf', methods=['POST'])
 def process_pdf():
