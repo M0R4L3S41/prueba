@@ -4,33 +4,37 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PDF Enmarcado</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='estilo.css') }}">
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-  <h1>Subir PDF para Enmarcar Automáticamente</h1>
-  <form id="pdfForm" action="/process_pdf" method="POST" enctype="multipart/form-data">
-    <input type="file" name="pdf_file" accept="application/pdf">
+<body class="flex items-center justify-center min-h-screen bg-gray-100">
+  <div class="bg-white shadow-lg rounded-lg p-6 w-full max-w-md">
+    <h1 class="text-xl font-bold text-center text-gray-800 mb-4">Subir PDF para Enmarcar</h1>
     
-    <div>
-      <label>
-        <input type="checkbox" name="front_frame"> Enmarcado delantero
-      </label>
-    </div>
-    <div>
-      <label>
-        <input type="checkbox" name="rear_frame"> Enmarcado trasero
-      </label>
-    </div>
-    <div>
-      <label>
-        <input type="checkbox" name="folio"> Folio
-      </label>
-    </div>
-    
-    <button type="submit">Procesar PDF</button>
-  </form>
-  
-  <a href="{{ url_for('logout') }}">Cerrar Sesión</a>
+    <form id="pdfForm" action="/process_pdf" method="POST" enctype="multipart/form-data" class="space-y-4">
+      <input type="file" name="pdf_file" accept="application/pdf" class="block w-full text-gray-600 border border-gray-300 rounded-lg p-2">
+      
+      <div class="space-y-2">
+        <label class="flex items-center space-x-2">
+          <input type="checkbox" name="front_frame" class="w-5 h-5 text-blue-600 rounded border-gray-300">
+          <span>Enmarcado delantero</span>
+        </label>
+        <label class="flex items-center space-x-2">
+          <input type="checkbox" name="rear_frame" class="w-5 h-5 text-blue-600 rounded border-gray-300">
+          <span>Enmarcado trasero</span>
+        </label>
+        <label class="flex items-center space-x-2">
+          <input type="checkbox" name="folio" class="w-5 h-5 text-blue-600 rounded border-gray-300">
+          <span>Folio</span>
+        </label>
+      </div>
+
+      <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition">
+        Procesar PDF
+      </button>
+    </form>
+
+    <a href="{{ url_for('logout') }}" class="block text-center mt-4 text-red-600 hover:underline">Cerrar Sesión</a>
+  </div>
 
   <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
   <script>
