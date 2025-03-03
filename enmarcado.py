@@ -173,6 +173,7 @@ def generate_barcode(text):
         except Exception as backup_error:
             print(f"Error en método de respaldo: {backup_error}")
             return None
+
 def overlay_pdf_on_background(pdf_file, output_stream, apply_front, apply_rear, apply_folio):
     """Superpone PDFs según las opciones seleccionadas."""
     try:
@@ -252,9 +253,10 @@ def overlay_pdf_on_background(pdf_file, output_stream, apply_front, apply_rear, 
             barcode_img = generate_barcode(barcode_text)
             
             if barcode_img:
-                # Insertar imagen del código de barras (ajustado para mejor visualización)
+                # Insertar imagen del código de barras con alta calidad
+                # Ajustar el tamaño y posición para mejor visualización
                 rect = fitz.Rect(45, 72, 175, 92)
-
+                
                 # Usar método mejorado para inserción
                 first_page.insert_image(
                     rect, 
@@ -262,7 +264,15 @@ def overlay_pdf_on_background(pdf_file, output_stream, apply_front, apply_rear, 
                     keep_proportion=True,  # Mantener proporción
                     overlay=True  # Superponer sin modificar el fondo
                 )
-                    
+
+        output_pdf.save(output_stream)
+        output_pdf.close()
+        selected_pdf.close()
+        return True, "PDF generado correctamente."
+
+    except Exception as e:
+        print(f"Error overlaying PDFs: {e}")
+        return False, f"Error al generar el PDF: {e}"
 
 # Rutas del Blueprint
 @enmarcado_bp.route('/process_pdf', methods=['POST'])
