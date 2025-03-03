@@ -1,6 +1,8 @@
 import os
 from flask import Flask, render_template, request, redirect, session, url_for, flash
 from flask_cors import CORS
+from barcode import Code128
+from barcode.writer import ImageWriter
 
 # Decorador de autenticación
 from functools import wraps
