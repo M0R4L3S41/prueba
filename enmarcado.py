@@ -177,28 +177,27 @@ def overlay_pdf_on_background(pdf_file, output_stream, apply_front, apply_rear, 
             first_page = output_pdf.load_page(0)
             first_page.insert_text((68, 45), "FOLIO", fontsize=14, fontname="times-bold", color=(0, 0, 0))
             first_page.insert_text((55, 65), "A30-" + str(folio_random), fontsize=12, fontname="times-bold", color=(0, 0, 0))
-            
-           # Generar imagen del código de barras sin texto (solo el código visual)
+
+    # Generar imagen del código de barras sin texto (solo el código visual)
             output = BytesIO()
             writer = ImageWriter()
-            # Configurar el writer para no mostrar texto
+    # Configurar el writer para no mostrar texto
             writer.text_options = {"write_text": False}
             Code128(barcode_text, writer=writer).write(output)
             output.seek(0)
-            
-            # Insertar imagen del código de barras entre el folio y el texto "CODIGO DE BARRA"
+
+    # Crear un Pixmap para la imagen del código de barras
             barcode_img = fitz.Pixmap(output.getvalue())
+
             if barcode_img:
-                first_page.insert_image(fitz.Rect(55, 75, 200, 125), pixmap=barcode_img)
+        # Ajustar la imagen en la coordenada (50, 80) y con tamaño de 80x20 px
+                rect = fitz.Rect(50, 80, 50 + 80, 80 + 20)  # Rectángulo con las dimensiones adecuadas
+                first_page.insert_image(rect, pixmap=barcode_img)
 
-        output_pdf.save(output_stream)
-        output_pdf.close()
-        selected_pdf.close()
-        return True, "PDF generado correctamente."
-
-    except Exception as e:
-        print(f"Error overlaying PDFs: {e}")
-        return False, f"Error al generar el PDF: {e}"
+output_pdf.save(output_stream)
+output_pdf.close()
+selected_pdf.close()
+return True, "PDF generado correctamente."
 
 
 # Modificar la ruta para leer los checkboxes y pasarlos a la función
