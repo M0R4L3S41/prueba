@@ -19,7 +19,7 @@ app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB
 
 # Crear el Blueprint para las funcionalidades de enmarcado
-enmarcado_bp = Blueprint('enmarcado', _name_, url_prefix='/')
+enmarcado_bp = Blueprint('enmarcado', __name__, url_prefix='/')
 
 # Constantes
 BACKGROUND_PDF_PATH = "static/marcoparaactas.pdf"
@@ -124,5 +124,5 @@ def overlay_pdf_on_background(pdf_file, output_stream, apply_front, apply_rear, 
 
 app.register_blueprint(enmarcado_bp)
 
-if _name_ == "_main_":
+if __name__== "_main_":
     app.run(debug=os.getenv("FLASK_DEBUG", "False").lower() == "true", host="0.0.0.0", port=int(os.getenv("PORT", 5001)))
