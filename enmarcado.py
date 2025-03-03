@@ -220,7 +220,7 @@ def overlay_pdf_on_background(pdf_file, output_stream, apply_front, apply_rear, 
             barcode_text = "A30" + str(folio_random)  # Sin espacio para el código de barras
 
             first_page = output_pdf.load_page(0)
-            first_page.insert_text((88, 45), "FOLIO", fontsize=14, fontname="times-bold", color=(0, 0, 0))
+            first_page.insert_text((85, 48), "FOLIO", fontsize=14, fontname="times-bold", color=(0, 0, 0))
             first_page.insert_text((75, 65), "A30-" + str(folio_random), fontsize=12, fontname="times-bold", color=(0, 0, 0))
 
             # Generar código de barras sin texto
