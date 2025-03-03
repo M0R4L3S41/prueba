@@ -163,8 +163,6 @@ def process_pdf():
 app.register_blueprint(enmarcado_bp)
 
 # Configuración del servidor para producción o local
-if _name_ == '_main_':
+if __name__ == '_main_':
     app.run(debug=os.getenv("FLASK_DEBUG", False), host='0.0.0.0', port=os.getenv("PORT", 5001))
 
-if _name_ == '_main_':
-    app.run(debug=os.getenv("FLASK_DEBUG", False), host='0.0.0.0', port=os.getenv("PORT", 5001))
