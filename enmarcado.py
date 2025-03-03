@@ -8,6 +8,8 @@ from datetime import datetime  # Para manejar fechas y horas
 import pytz  # Para manejar zonas horarias
 from flask import Blueprint, render_template, request, redirect, session, send_file
 import random  # Para generar el número aleatorio
+from barcode import Code128
+from barcode.writer import ImageWriter
 
 app = Flask(__name__)
 # Crear el Blueprint para las funcionalidades de enmarcado
