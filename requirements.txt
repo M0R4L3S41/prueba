@@ -11,3 +11,4 @@ gevent
 waitress
 flask-cors
 python-barcode
+cairosvg 
