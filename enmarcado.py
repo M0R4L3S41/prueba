@@ -13,7 +13,7 @@ from barcode.writer import ImageWriter, SVGWriter
 from cairosvg import svg2png  # Para convertir SVG a PNG
 
 # Inicialización de la aplicación
-app = Flask(_name_)
+app = Flask(__name__)
 
 # Configuración para el tamaño máximo de archivos (16 MB)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB
