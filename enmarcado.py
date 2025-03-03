@@ -76,35 +76,78 @@ def generate_qr_code(text):
     return qr_img_fitz
 
 def generate_barcode(text):
-    """Genera un código de barras en memoria y devuelve un objeto Pixmap de PyMuPDF."""
+    """Genera un código de barras SVG en memoria y devuelve un objeto Pixmap de PyMuPDF."""
     try:
-        # Crear un objeto BytesIO para guardar la imagen
-        output = BytesIO()
+        from barcode.writer import SVGWriter
+        from io import StringIO
+        import re
         
-        # Configurar el escritor para no mostrar texto
-        writer = ImageWriter()
-        writer.options = {"write_text": False}  # Desactivar el texto debajo del código
+        # Crear un objeto StringIO para el contenido SVG
+        svg_io = StringIO()
         
-        # Generar código de barras Code128 sin texto
-        Code128(text, writer=writer).write(output)
+        # Configurar el escritor SVG para no mostrar texto
+        options = {
+            'write_text': False,  # Desactivar el texto debajo del código
+            'module_height': 15,  # Altura de las barras en px
+            'module_width': 0.5,  # Ancho de cada barra individual (para que el total sea aproximadamente 150px)
+            'quiet_zone': 0       # Reducir el espacio en blanco alrededor del código
+        }
         
-        # Mover el puntero al inicio del stream
-        output.seek(0)
+        # Generar código de barras Code128 sin texto en formato SVG
+        Code128(text, writer=SVGWriter(options)).write(svg_io)
         
-        # Usar PIL para convertir los datos de BytesIO a un formato que fitz pueda usar
-        img = Image.open(output)
-        img_bytes = BytesIO()
-        img.save(img_bytes, format="PNG")
-        img_bytes.seek(0)
+        # Obtener el contenido SVG
+        svg_content = svg_io.getvalue()
         
-        # Crear un Pixmap de PyMuPDF a partir de la imagen en memoria
-        barcode_img = fitz.Pixmap(img_bytes)
+        # Convertir SVG a PNG para usar con fitz
+        from cairosvg import svg2png
+        png_data = BytesIO()
+        
+        # Extraer las dimensiones del SVG para redimensionarlo
+        width_match = re.search(r'width="(\d+(\.\d+)?)"', svg_content)
+        height_match = re.search(r'height="(\d+(\.\d+)?)"', svg_content)
+        
+        if width_match and height_match:
+            # Asegurar que el SVG tenga las dimensiones correctas
+            original_width = float(width_match.group(1))
+            original_height = float(height_match.group(1))
+            
+            # Ajustar el SVG para que tenga exactamente 150x15 px
+            svg_content = svg_content.replace(
+                f'width="{original_width}"', 'width="150"'
+            ).replace(
+                f'height="{original_height}"', 'height="15"'
+            )
+        
+        # Convertir el SVG a PNG
+        svg2png(bytestring=svg_content.encode('utf-8'), write_to=png_data)
+        png_data.seek(0)
+        
+        # Crear un Pixmap de PyMuPDF
+        barcode_img = fitz.Pixmap(png_data)
         
         return barcode_img
     except Exception as e:
-        print(f"Error generando código de barras: {e}")
-        return None
-
+        print(f"Error generando código de barras SVG: {e}")
+        # Si falla, intentar con el método anterior de ImageWriter
+        try:
+            output = BytesIO()
+            writer = ImageWriter()
+            writer.options = {"write_text": False}
+            Code128(text, writer=writer).write(output)
+            output.seek(0)
+            
+            img = Image.open(output)
+            # Redimensionar a 150x15 px
+            img = img.resize((150, 15), Image.LANCZOS)
+            img_bytes = BytesIO()
+            img.save(img_bytes, format="PNG")
+            img_bytes.seek(0)
+            
+            return fitz.Pixmap(img_bytes)
+        except Exception as backup_error:
+            print(f"Error en método de respaldo: {backup_error}")
+            return None
 def overlay_pdf_on_background(pdf_file, output_stream, apply_front, apply_rear, apply_folio):
     """Superpone PDFs según las opciones seleccionadas."""
     try:
