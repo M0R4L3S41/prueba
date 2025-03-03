@@ -115,31 +115,19 @@ def overlay_pdf_on_background(pdf_file, output_stream, apply_front, apply_rear, 
                         new_page.show_pdf_page(new_page.rect, state_pdf, state_page_num)
                     state_pdf.close()
 
-        # Insertar códigos QR en la segunda página si existe más de una página
+        # Insertar códigos QR en la segunda página (parte inferior izquierda) se mantiene sin cambios
         if len(output_pdf) > 1:
             filename = os.path.basename(pdf_file.filename)
             qr_img = generate_qr_code(filename)
             second_page = output_pdf.load_page(1)
-
             # Primer QR (parte superior)
             qr_rect = fitz.Rect(34, 24, 95, 88)
             second_page.insert_image(qr_rect, pixmap=qr_img)
-
-            # Insertar folio solo si se selecciona esa opción
-            if apply_folio:
-                # Generar número aleatorio de 6 dígitos
-                folio_random = random.randint(100000, 999999)
-                # Crear el texto del folio
-                folio_text = "FOLIO\nA30 " + str(folio_random)
-                # Insertar el texto a 20px desde la esquina superior izquierda
-                second_page.insert_text((20, 20), folio_text, fontsize=7, color=(0.5, 0.5, 0.5))
-
             # Segundo QR (parte inferior izquierda)
             page_height = second_page.rect.height
             qr_size_small = 17 * 2.83465  # Tamaño del segundo QR en puntos
             move_up = 5.33 * 2.83465  # Ajuste para mover el QR hacia arriba
             move_right = 4.26 * 2.83465  # Ajuste para mover el QR hacia la derecha
-
             qr_rect_bottom_left = fitz.Rect(
                 20 + move_right,
                 (page_height - qr_size_small - 10) - move_up,
@@ -147,6 +135,18 @@ def overlay_pdf_on_background(pdf_file, output_stream, apply_front, apply_rear, 
                 (page_height - 10) - move_up
             )
             second_page.insert_image(qr_rect_bottom_left, pixmap=qr_img)
+
+        # Insertar folio (si se selecciona) en la primera página, a 45 y 89 px desde la esquina superior izquierda,
+        # y debajo de eso, insertar un "código de barras" que solo diga "A30 " seguido de un número aleatorio.
+        if apply_folio:
+            folio_random = random.randint(100000, 999999)
+            # Usar la primera página (índice 0)
+            first_page = output_pdf.load_page(0)
+            # Insertar "FOLIO" en (45, 89)
+            first_page.insert_text((45, 89), "FOLIO", fontsize=7, color=(0.5, 0.5, 0.5))
+            # Insertar debajo el código de barras en (45, 109)
+            barcode_text = "A30 " + str(folio_random)
+            first_page.insert_text((45, 109), barcode_text, fontsize=7, color=(0.5, 0.5, 0.5))
 
         output_pdf.save(output_stream)
         output_pdf.close()
