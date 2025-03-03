@@ -89,7 +89,7 @@ def generate_barcode(text):
         options = {
             'write_text': False,  # Desactivar el texto debajo del código
             'module_height': 15,  # Altura de las barras en px
-            'module_width': 0.5,  # Ancho de cada barra individual (para que el total sea aproximadamente 150px)
+            'module_width': 0,  # Ancho de cada barra individual (para que el total sea aproximadamente 150px)
             'quiet_zone': 0       # Reducir el espacio en blanco alrededor del código
         }
         
@@ -114,7 +114,7 @@ def generate_barcode(text):
             
             # Ajustar el SVG para que tenga exactamente 150x15 px
             svg_content = svg_content.replace(
-                f'width="{original_width}"', 'width="90"'
+                f'width="{original_width}"', 'width="60"'
             ).replace(
                 f'height="{original_height}"', 'height="15"'
             )
@@ -139,7 +139,7 @@ def generate_barcode(text):
             
             img = Image.open(output)
             # Redimensionar a 150x15 px
-            img = img.resize((150, 15), Image.LANCZOS)
+            img = img.resize((60, 15), Image.LANCZOS)
             img_bytes = BytesIO()
             img.save(img_bytes, format="PNG")
             img_bytes.seek(0)
