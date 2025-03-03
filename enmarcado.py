@@ -114,7 +114,7 @@ def generate_barcode(text):
             
             # Ajustar el SVG para que tenga exactamente 150x15 px
             svg_content = svg_content.replace(
-                f'width="{original_width}"', 'width="60"'
+                f'width="{original_width}"', 'width="100"'
             ).replace(
                 f'height="{original_height}"', 'height="15"'
             )
@@ -139,7 +139,7 @@ def generate_barcode(text):
             
             img = Image.open(output)
             # Redimensionar a 150x15 px
-            img = img.resize((90, 15), Image.LANCZOS)
+            img = img.resize((120, 15), Image.LANCZOS)
             img_bytes = BytesIO()
             img.save(img_bytes, format="PNG")
             img_bytes.seek(0)
