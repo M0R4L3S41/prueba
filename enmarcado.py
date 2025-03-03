@@ -114,7 +114,7 @@ def generate_barcode(text):
             
             # Ajustar el SVG para que tenga exactamente 150x15 px
             svg_content = svg_content.replace(
-                f'width="{original_width}"', 'width="150"'
+                f'width="{original_width}"', 'width="90"'
             ).replace(
                 f'height="{original_height}"', 'height="15"'
             )
