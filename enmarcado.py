@@ -71,7 +71,16 @@ def generate_qr_code(text):
     qr_img_fitz = fitz.Pixmap(img_byte_array)  # Cargar imagen PNG directamente en Pixmap
     
     return qr_img_fitz
+def generate_barcode(text):
+    code128 = barcode.get_barcode_class('code128')
+    barcode_obj = code128(text, writer=ImageWriter())
 
+    # Guardar imagen en memoria
+    barcode_bytes = BytesIO()
+    barcode_obj.write(barcode_bytes)
+    barcode_bytes.seek(0)
+
+    return fitz.Pixmap(barcode_bytes)
 # Función modificada para superponer PDFs según las opciones seleccionadas
 def overlay_pdf_on_background(pdf_file, output_stream, apply_front, apply_rear, apply_folio):
     try:
@@ -141,23 +150,18 @@ def overlay_pdf_on_background(pdf_file, output_stream, apply_front, apply_rear, 
         # Insertar folio (si se selecciona) en la primera página, a 45 y 89 px desde la esquina superior izquierda,
         # y debajo de eso, insertar un "código de barras" que solo diga "A30 " seguido de un número aleatorio.
         if apply_folio:
-            folio_random = random.randint(100000, 999999)
-            # Usar la primera página (índice 0)
-            first_page = output_pdf.load_page(0)
-            # Insertar "FOLIO" en (45, 89)
-            first_page.insert_text((68, 45), "FOLIO", fontsize=14,fontname="times-bold", color=(0, 0, 0))
-            # Insertar debajo el código de barras en (45, 109)
-            barcode_text = "A30 " + str(folio_random)
-            first_page.insert_text((55, 60), barcode_text, fontsize=12, color=(0, 0, 0))
+    folio_random = random.randint(100000, 999999)
+    barcode_text = "A30 " + str(folio_random)
 
-        output_pdf.save(output_stream)
-        output_pdf.close()
-        selected_pdf.close()
-        return True, "PDF generado correctamente."
+    first_page = output_pdf.load_page(0)
+    first_page.insert_text((68, 45), "FOLIO", fontsize=14, fontname="times-bold", color=(0, 0, 0))
+    first_page.insert_text((55, 65), barcode_text, fontsize=12, fontname="times-bold", color=(0, 0, 0))
 
-    except Exception as e:
-        print(f"Error overlaying PDFs: {e}")
-        return False, f"Error al generar el PDF: {e}"
+    # Generar imagen del código de barras
+    barcode_img = generate_barcode(barcode_text)
+
+    # Insertar imagen del código de barras justo debajo del texto
+    first_page.insert_image(fitz.Rect(55, 80, 200, 120), pixmap=barcode_img)  # 
 
 
 # Modificar la ruta para leer los checkboxes y pasarlos a la función
