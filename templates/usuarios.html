@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Administración de Usuarios</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Administración de Usuarios</h1>
+        <a href="{{ url_for('agregar_usuario') }}">Agregar Usuario</a>
+        <table>
+            <tr>
+                <th>ID</th>
+                <th>Nombre de Usuario</th>
+                <th>Rol</th>
+                <th>Activo</th>
+                <th>Acciones</th>
+            </tr>
+            {% for user in users %}
+            <tr>
+                <td>{{ user.id }}</td>
+                <td>{{ user.nombre_usuario }}</td>
+                <td>{{ user.rol }}</td>
+                <td>{{ 'Sí' if user.activo else 'No' }}</td>
+                <td>
+                    <a href="{{ url_for('editar_usuario', user_id=user.id) }}">Editar</a>
+                    <a href="{{ url_for('toggle_usuario', user_id=user.id) }}">{{ 'Deshabilitar' if user.activo else 'Habilitar' }}</a>
+                    <form action="{{ url_for('eliminar_usuario', user_id=user.id) }}" method="post" style="display:inline;">
+                        <button type="submit">Eliminar</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+        <a href="{{ url_for('logout') }}">Cerrar Sesión</a>
+    </div>
+</body>
+</html>

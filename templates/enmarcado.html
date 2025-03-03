@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDF Enmarcado</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='estilo.css') }}">
+</head>
+<body>
+  <h1>Subir PDF para Enmarcar Automáticamente</h1>
+  <form id="pdfForm" action="/process_pdf" method="POST" enctype="multipart/form-data">
+    <input type="file" name="pdf_file" accept="application/pdf">
+    
+    <div>
+      <label>
+        <input type="checkbox" name="front_frame"> Enmarcado delantero
+      </label>
+    </div>
+    <div>
+      <label>
+        <input type="checkbox" name="rear_frame"> Enmarcado trasero
+      </label>
+    </div>
+    <div>
+      <label>
+        <input type="checkbox" name="folio"> Folio
+      </label>
+    </div>
+    
+    <button type="submit">Procesar PDF</button>
+  </form>
+  
+  <a href="{{ url_for('logout') }}">Cerrar Sesión</a>
+
+  <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+  <script>
+    const socket = io();
+    socket.on('force_logout', (data) => {
+      alert(data.message);
+      window.location.href = '/login';
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ action }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>{{ action }}</h1>
+        <form method="POST">
+            <label for="username">Nombre de Usuario:</label>
+            <input type="text" id="username" name="username" value="{{ user.nombre_usuario if user else '' }}" required>
+
+            <label for="rol">Rol:</label>
+            <select name="rol">
+                <option value="cliente" {% if user and user.rol == 'usuario' %}selected{% endif %}>cliente</option>
+                <option value="admin" {% if user and user.rol == 'admin' %}selected{% endif %}>admin</option>
+            </select>
+
+            {% if not user %}
+            <!-- Agregar campos de contraseña al crear un nuevo usuario -->
+            <label for="password">Contraseña:</label>
+            <input type="password" id="password" name="password" required>
+
+            <label for="confirm_password">Confirmar Contraseña:</label>
+            <input type="password" id="confirm_password" name="confirm_password" required>
+            {% else %}
+            <label for="activo">Activo:</label>
+            <input type="checkbox" name="activo" value="1" {% if user.activo %}checked{% endif %}>
+            {% endif %}
+
+            <button type="submit">Guardar</button>
+        </form>
+    </div>
+</body>
+</html>

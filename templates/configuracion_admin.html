@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configuración de Administrador</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <h1>Administración de Usuarios</h1>
+    <a href="{{ url_for('listar_usuarios') }}">Ver y Administrar Usuarios</a>
+    <a href="{{ url_for('logout') }}">Cerrar Sesión</a>
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+    <script>
+        const socket = io();  // Asegúrate de que Socket.IO esté bien cargado y conectado.
+    
+        // Manejar el evento de cierre de sesión forzado
+        socket.on('force_logout', (data) => {
+            alert(data.message);
+            window.location.href = '/login';  // Redirige al usuario a la página de login
+        });
+    
+        // Función para enviar el formulario automáticamente cuando se selecciona un archivo
+        function onFileSelected() {
+            document.getElementById('pdfForm').submit();
+        }
+    </script>
+    
+</body>
+</html>
