@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, send_file, jsonify
+from flask import Flask, render_template, request, send_file, jsonify, Blueprint, redirect, session
 import fitz  # PyMuPDF para manejar PDFs
 import qrcode
 import os
@@ -6,19 +6,20 @@ from io import BytesIO
 from PIL import Image  # Importar la biblioteca Pillow
 from datetime import datetime  # Para manejar fechas y horas
 import pytz  # Para manejar zonas horarias
-from flask import Blueprint, render_template, request, redirect, session, send_file
 import random  # Para generar el número aleatorio
 from barcode import Code128
 from barcode.writer import ImageWriter
 
+# Inicialización de la aplicación
 app = Flask(__name__)
-# Crear el Blueprint para las funcionalidades de enmarcado
-enmarcado_bp = Blueprint('enmarcado', __name__, url_prefix='/')
 
 # Configuración para el tamaño máximo de archivos (16 MB)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB
 
-# Ruta al archivo de fondo
+# Crear el Blueprint para las funcionalidades de enmarcado
+enmarcado_bp = Blueprint('enmarcado', __name__, url_prefix='/')
+
+# Constantes
 BACKGROUND_PDF_PATH = "static/marcoparaactas.pdf"
 MARCOS_FOLDER = "static/marcostraceros"
 
@@ -36,7 +37,9 @@ ESTADOS = {
 # Definir la zona horaria de México
 mexico_timezone = pytz.timezone('America/Mexico_City')
 
+# Funciones auxiliares
 def is_within_working_hours():
+    """Verifica si la hora actual está dentro del horario de trabajo."""
     # Obtener la hora actual en UTC y convertirla a la zona horaria de México
     now = datetime.now(pytz.utc).astimezone(mexico_timezone)
     
@@ -50,8 +53,8 @@ def is_within_working_hours():
     # Verificar si la hora actual está dentro del horario permitido
     return start_time <= now <= end_time
 
-# Función para generar el código QR en memoria (BytesIO)
 def generate_qr_code(text):
+    """Genera un código QR en memoria y devuelve un objeto Pixmap de PyMuPDF."""
     qr = qrcode.QRCode(
         version=1,
         error_correction=qrcode.constants.ERROR_CORRECT_L,
@@ -72,39 +75,38 @@ def generate_qr_code(text):
     
     return qr_img_fitz
 
-# Función para generar código de barras
 def generate_barcode(text):
+    """Genera un código de barras en memoria y devuelve un objeto Pixmap de PyMuPDF."""
     try:
         # Crear un objeto BytesIO para guardar la imagen
         output = BytesIO()
         
         # Configurar el escritor para no mostrar texto
         writer = ImageWriter()
-        writer.options['write_text'] = False  # Desactivar el texto debajo del código
-
+        writer.options = {"write_text": False}  # Desactivar el texto debajo del código
+        
         # Generar código de barras Code128 sin texto
-        code128 = Code128(text, writer=writer)
-        code128.write(output)
+        Code128(text, writer=writer).write(output)
         
         # Mover el puntero al inicio del stream
         output.seek(0)
-
-        # Usar PIL para convertir los datos de BytesIO a un formato que fitz pueda usar (por ejemplo, PNG)
+        
+        # Usar PIL para convertir los datos de BytesIO a un formato que fitz pueda usar
         img = Image.open(output)
         img_bytes = BytesIO()
         img.save(img_bytes, format="PNG")
         img_bytes.seek(0)
-
+        
         # Crear un Pixmap de PyMuPDF a partir de la imagen en memoria
         barcode_img = fitz.Pixmap(img_bytes)
-
+        
         return barcode_img
     except Exception as e:
         print(f"Error generando código de barras: {e}")
         return None
 
-# Función modificada para superponer PDFs según las opciones seleccionadas
 def overlay_pdf_on_background(pdf_file, output_stream, apply_front, apply_rear, apply_folio):
+    """Superpone PDFs según las opciones seleccionadas."""
     try:
         # Leer el PDF subido en memoria
         try:
@@ -178,33 +180,30 @@ def overlay_pdf_on_background(pdf_file, output_stream, apply_front, apply_rear, 
             first_page.insert_text((68, 45), "FOLIO", fontsize=14, fontname="times-bold", color=(0, 0, 0))
             first_page.insert_text((55, 65), "A30-" + str(folio_random), fontsize=12, fontname="times-bold", color=(0, 0, 0))
 
-    # Generar imagen del código de barras sin texto (solo el código visual)
-            output = BytesIO()
-            writer = ImageWriter()
-    # Configurar el writer para no mostrar texto
-            writer.text_options = {"write_text": False}
-            Code128(barcode_text, writer=writer).write(output)
-            output.seek(0)
-
-    # Crear un Pixmap para la imagen del código de barras
-            barcode_img = fitz.Pixmap(output.getvalue())
-
+            # Generar código de barras sin texto
+            barcode_img = generate_barcode(barcode_text)
+            
             if barcode_img:
-        # Ajustar la imagen en la coordenada (50, 80) y con tamaño de 80x20 px
-                rect = fitz.Rect(50, 80, 50 + 80, 80 + 20)  # Rectángulo con las dimensiones adecuadas
+                # Insertar imagen del código de barras (ajustado para mejor visualización)
+                rect = fitz.Rect(50, 80, 180, 120)  # Rectángulo con las dimensiones adecuadas
                 first_page.insert_image(rect, pixmap=barcode_img)
 
-output_pdf.save(output_stream)
-output_pdf.close()
-selected_pdf.close()
-return True, "PDF generado correctamente."
+        output_pdf.save(output_stream)
+        output_pdf.close()
+        selected_pdf.close()
+        return True, "PDF generado correctamente."
 
+    except Exception as e:
+        print(f"Error overlaying PDFs: {e}")
+        return False, f"Error al generar el PDF: {e}"
 
-# Modificar la ruta para leer los checkboxes y pasarlos a la función
+# Rutas del Blueprint
 @enmarcado_bp.route('/process_pdf', methods=['POST'])
 def process_pdf():
+    """Procesa el PDF según las opciones seleccionadas."""
     if not is_within_working_hours():
         return "El servicio no está disponible fuera del horario de 9 AM a 5 PM.", 403
+    
     try:
         if 'pdf_file' not in request.files:
             print("No file in request.files")
@@ -234,6 +233,9 @@ def process_pdf():
     except Exception as e:
         print(f"Error procesando PDF: {e}")
         return 'Error procesando archivo PDF', 500
+
+# Registrar el Blueprint con la aplicación
+app.register_blueprint(enmarcado_bp)
 
 # Configuración del servidor para producción o local
 if __name__ == '__main__':
