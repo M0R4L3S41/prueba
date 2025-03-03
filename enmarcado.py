@@ -139,7 +139,7 @@ def generate_barcode(text):
             
             img = Image.open(output)
             # Redimensionar a 150x15 px
-            img = img.resize((60, 15), Image.LANCZOS)
+            img = img.resize((90, 15), Image.LANCZOS)
             img_bytes = BytesIO()
             img.save(img_bytes, format="PNG")
             img_bytes.seek(0)
